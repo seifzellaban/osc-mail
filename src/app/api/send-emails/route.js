@@ -151,10 +151,10 @@ export async function POST(request) {
                       
                       <div class="event-details">
                           <h2>Event Details</h2>
-                          <p><strong>Date:</strong> Saturday, 26th of January, 2025</p>
-                          <p><strong>Time:</strong> 10:00 AM - 2:00 PM</p>
+                          <p><strong>Date:</strong> Sunday, 26th of January, 2025</p>
+                          <p><strong>Time:</strong> 12:00 PM - 3:00 PM</p>
                           <p><strong>Venue:</strong> Faculty of Computer and Information Sciences (FCIS)</p>
-                          <p><strong>Location:</strong> Saied Auditorium</p>
+                          <p><strong>Location:</strong> Saied Abdulwahab Hall</p>
                       </div>
 
                       <div class="attendance-code">
@@ -167,8 +167,6 @@ export async function POST(request) {
                           <li>Bring your laptop with Blender installed</li>
                           <li>Keep your attendance code ready for check-in</li>
                       </ul>
-
-                      <p>If you have any questions or need to make changes to your registration, please contact us at <span class="accent">oscopensourcecommunity@gmail.com</span></p>
                   </main>
                   <footer class="signature">
                       <p>Best regards,</p>
