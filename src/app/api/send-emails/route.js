@@ -49,9 +49,18 @@ export async function POST(request) {
     const headers = rows[0];
     const emailColumnIndex = headers.indexOf("Email");
 
+    // Create a mapping of email to row index (1-based for Google Sheets)
+    const emailToRowIndex = new Map();
+    for (let i = 1; i < rows.length; i++) {
+      const email = rows[i][emailColumnIndex];
+      if (email) {
+        // Google Sheets uses 1-based indexing, so add 1 to the row index
+        emailToRowIndex.set(email, i + 1);
+      }
+    }
+
     // Prepare unique IDs for batch update with correct row mapping
     const uniqueIds = new Array(rows.length).fill([""]); // Initialize with empty values for all rows
-    const updates = [];
 
     // Send emails to all recipients and track status
     for (let i = 0; i < recipients.length; i++) {
@@ -59,23 +68,21 @@ export async function POST(request) {
         const recipient = recipients[i];
         const uniqueCode = `OSC25WW${String(i + 1).padStart(3, "0")}`;
 
-        // Find the correct row index for this recipient
-        const rowIndex = rows.findIndex(
-          (row, index) => index > 0 && row[emailColumnIndex] === recipient.email
-        );
+        // Extract the first name from the recipient's name
+        const firstName = recipient.name.split(" ")[0];
 
-        if (rowIndex !== -1) {
-          uniqueIds[rowIndex] = [uniqueCode];
-          updates.push({
-            rowIndex,
-            uniqueCode,
-          });
+        // Find the correct row index for this recipient (1-based)
+        const rowIndex = emailToRowIndex.get(recipient.email);
+
+        if (rowIndex !== undefined) {
+          // Update the uniqueIds array with the correct row index
+          uniqueIds[rowIndex - 1] = [uniqueCode]; // Subtract 1 to align with array index
         }
 
         await transporter.sendMail({
           from: process.env.SMTP_FROM_EMAIL,
           to: recipient.email,
-          subject: "OSC Event Registration Confirmation",
+          subject: "OSC Blender Workshop Registration Confirmation",
           html: `
           <!DOCTYPE html>
           <html lang="en">
@@ -144,7 +151,7 @@ export async function POST(request) {
           <body>
               <div class="container">
                   <header>
-                      <h1>Hello <span class="accent">${recipient.name}</span>!</h1>
+                      <h1>Hello <span class="accent">${firstName}</span>!</h1>
                   </header>
                   <main>
                       <p>Thank you for registering for the winter blender workshop. This email confirms that we've received your registration.</p>
@@ -186,11 +193,17 @@ export async function POST(request) {
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
+        console.error(
+          "Error sending email to:",
+          recipient.email,
+          "Error details:",
+          error
+        );
         emailResults.push({
           email: recipient.email,
           name: recipient.name,
           status: "failed",
-          error: error.message,
+          error: error.message || "Unknown error",
           timestamp: new Date().toISOString(),
         });
       }
@@ -201,22 +214,20 @@ export async function POST(request) {
       const columnLetter = String.fromCharCode(64 + uniqueIdColumn);
       // Filter out empty rows and create the update range
       const nonEmptyIds = uniqueIds.filter((id) => id[0] !== "");
-      const firstRow = rows.findIndex(
-        (row, index) =>
-          index > 0 && recipients.some((r) => r.email === row[emailColumnIndex])
-      );
 
-      if (firstRow !== -1) {
-        await sheets.spreadsheets.values.update({
-          spreadsheetId,
-          range: `${columnLetter}${firstRow + 1}:${columnLetter}${
-            firstRow + nonEmptyIds.length
-          }`,
-          valueInputOption: "RAW",
-          resource: {
-            values: nonEmptyIds,
-          },
-        });
+      // Update only the rows that have unique IDs
+      for (let i = 0; i < nonEmptyIds.length; i++) {
+        const rowIndex = emailToRowIndex.get(recipients[i].email);
+        if (rowIndex) {
+          await sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: `${columnLetter}${rowIndex}:${columnLetter}${rowIndex}`,
+            valueInputOption: "RAW",
+            resource: {
+              values: [nonEmptyIds[i]],
+            },
+          });
+        }
       }
     } catch (error) {
       console.error("Error updating spreadsheet:", error);
